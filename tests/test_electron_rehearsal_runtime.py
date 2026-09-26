@@ -1,0 +1,43 @@
+"""The artifact rehearsal must exercise installation, not just the setup screen."""
+from pathlib import Path
+
+import yaml
+
+
+def test_rehearsal_installs_runtime_in_a_separate_packaged_launch():
+    workflow = yaml.safe_load(
+        (Path(__file__).parents[1] / '.github/workflows/electron-build.yml').read_text()
+    )
+    steps = workflow['jobs']['package']['steps']
+    runtime = [step for step in steps if '--install' in step.get('run', '')]
+    assert len(runtime) == 1, 'Rehearsal must actually install and start the packaged runtime'
+    assert runtime[0]['if'] == 'matrix.local_runtime'
+    targets = workflow['jobs']['package']['strategy']['matrix']['include']
+    assert {(t['platform'], t['arch']) for t in targets if t['local_runtime']} == {
+        ('linux', 'x64'), ('win32', 'x64'), ('darwin', 'arm64'),
+    }
+    assert {(t['platform'], t['arch']) for t in targets if not t['local_runtime']} == {
+        ('darwin', 'x64'),
+    }
+    assert '--setup' not in runtime[0]['run'], '--setup would bypass runtime installation'
+    assert 'xvfb-run -a node tests/packaged-smoke.mjs --install' in runtime[0]['run']
+    assert 'node tests/packaged-smoke.mjs --setup' in '\n'.join(s.get('run', '') for s in steps)
+    assert workflow['permissions']['contents'] == 'read'
+    assert '--publish never' in '\n'.join(s.get('run', '') for s in steps)
+
+
+def test_install_smoke_uses_an_offline_fresh_model_cache():
+    """Fresh installation must not reuse models or trigger model downloads."""
+    smoke = (Path(__file__).parents[1] / 'electron/tests/packaged-smoke.mjs').read_text()
+    assert "mkdtempSync(join(tmpdir(), 'sesly-packaged-check-'))" in smoke
+    assert "if (setup || install || existing)" in smoke
+    assert "HF_HUB_CACHE: join(profile, 'hf-home', 'hub')" in smoke
+    assert "HF_HUB_OFFLINE: firstSound ? '0' : '1'" in smoke
+    assert "TRANSFORMERS_OFFLINE: firstSound ? '0' : '1'" in smoke
+    workflow = yaml.safe_load(
+        (Path(__file__).parents[1] / '.github/workflows/electron-build.yml').read_text()
+    )
+    for step in workflow['jobs']['package']['steps']:
+        if '--install' in step.get('run', ''):
+            assert '--first-sound' not in step['run']
+            assert 'SESLY_TEST_PROFILE' not in step.get('env', {})

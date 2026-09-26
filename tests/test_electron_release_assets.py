@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+import hashlib
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
+
+from check_electron_release_assets import (  # noqa: E402
+    ReleaseContractError,
+    TARGETS,
+    verify_release,
+)
+
+
+def _release(tmp_path: Path, *, channel: str = "preview", version: str = "0.5.3-144"):
+    assets = []
+    for target, (manifest_target, os_token, arch, extension) in TARGETS.items():
+        artifact = f"Sesly-Electron-{version}-{os_token}-{arch}{extension}"
+        manifest_name = f"electron-{channel}-{manifest_target}.yml"
+        body = (
+            f"version: {version}\n"
+            "files:\n"
+            f"  - url: {artifact}\n"
+            f"    sha512: {'a' * 88}\n"
+            "    size: 1234\n"
+            f"path: {artifact}\n"
+            f"sha512: {'a' * 88}\n"
+            "releaseDate: '2026-09-14T00:00:00.000Z'\n"
+        ).encode()
+        (tmp_path / manifest_name).write_bytes(body)
+        assets.extend(
+            [
+                {
+                    "name": manifest_name,
+                    "size": len(body),
+                    "digest": f"sha256:{hashlib.sha256(body).hexdigest()}",
+                },
+                {"name": artifact, "size": 1234, "digest": "sha256:payload"},
+            ]
+        )
+        if target == "win32-x64":
+            assets.append({"name": f"{artifact}.blockmap", "size": 10, "digest": "sha256:map"})
+    return {
+        "tagName": "preview" if channel == "preview" else f"v{version}",
+        "isPrerelease": channel == "preview",
+        "assets": assets,
+    }
+
+
+def test_complete_four_target_release_passes(tmp_path: Path):
+    result = verify_release(_release(tmp_path), tmp_path, channel="preview", version="0.5.3-144")
+    assert len(result) == 4
+    assert {item.split(" -> ", 1)[0] for item in result} == {
+        "electron-preview-darwin-arm64-mac.yml",
+        "electron-preview-darwin-x64-mac.yml",
+        "electron-preview-linux-x64-linux.yml",
+        "electron-preview-win32-x64.yml",
+    }
+
+
+def test_missing_platform_manifest_fails_closed(tmp_path: Path):
+    release = _release(tmp_path)
+    (tmp_path / "electron-preview-darwin-arm64-mac.yml").unlink()
+    with pytest.raises(ReleaseContractError, match="missing downloaded manifest"):
+        verify_release(release, tmp_path, channel="preview", version="0.5.3-144")
+
+
+def test_published_payload_size_must_match_manifest(tmp_path: Path):
+    release = _release(tmp_path)
+    payload = next(
+        asset for asset in release["assets"] if asset["name"].endswith("-win-x64.exe")
+    )
+    payload["size"] = 999
+    with pytest.raises(ReleaseContractError, match="published size"):
+        verify_release(release, tmp_path, channel="preview", version="0.5.3-144")
+
+
+def test_preview_cannot_masquerade_as_stable(tmp_path: Path):
+    release = _release(tmp_path)
+    with pytest.raises(ReleaseContractError, match="prerelease flag"):
+        verify_release(release, tmp_path, channel="stable", version="0.5.2")
+
+
+def test_preview_requires_the_numeric_run_stamp(tmp_path: Path):
+    release = _release(tmp_path, version="0.5.3")
+    with pytest.raises(ReleaseContractError, match="wrong shape"):
+        verify_release(release, tmp_path, channel="preview", version="0.5.3")
+
+
+def test_stable_release_tag_must_match_the_manifest_version(tmp_path: Path):
+    release = _release(tmp_path, channel="stable", version="0.5.3")
+    release["tagName"] = "v0.5.2"
+    with pytest.raises(ReleaseContractError, match="release tag"):
+        verify_release(release, tmp_path, channel="stable", version="0.5.3")
