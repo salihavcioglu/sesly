@@ -1,0 +1,171 @@
+# ─────────────────────────────────────────────────────────────────────────
+#  Python
+# ─────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.so
+*.egg
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Node / Turborepo / Tauri
+# ─────────────────────────────────────────────────────────────────────────
+node_modules/
+node_modules
+.turbo/
+bun.lockb
+frontend/src-tauri/target/
+electron/.tmp-native-target/
+native/**/target*/
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Secrets & env
+# ─────────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─────────────────────────────────────────────────────────────────────────
+#  OS junk
+# ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# Local agent-memory DB (memxt) — per-machine state, never committed
+memxt.db
+memxt.db-shm
+memxt.db-wal
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Editor / tool caches
+# ─────────────────────────────────────────────────────────────────────────
+# Local editor / AI-assistant tool state — never committed.
+.claude/
+.cursor/
+.codex/
+/.cache*
+/.tmp/
+/.tmp-*
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Research clones — upstream repos used as reference, not shipped
+# ─────────────────────────────────────────────────────────────────────────
+research/
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Runtime data & artifacts
+#  (app-local state — safe to regenerate)
+# ─────────────────────────────────────────────────────────────────────────
+omnivoice_data/
+/data/
+/local/
+/results/
+/download
+/run*
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.wav
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Frozen regression fixture (GATE-01) — explicit allow-list.
+#  The patterns above (omnivoice_data/, *.db, *.wav) would otherwise hide
+#  tests/fixtures/omnivoice_data/ from git. Phase 0 requires this fixture
+#  to be checked in (no LFS) so every PR's smoke matrix loads it.
+#
+#  We only un-ignore the EXACT files the seed script produces. The backend
+#  creates runtime subdirs (dub_jobs/, outputs/, preview/, etc.) when the
+#  smoke test boots — those stay ignored.
+# ─────────────────────────────────────────────────────────────────────────
+!tests/fixtures/omnivoice_data/
+!tests/fixtures/omnivoice_data/README.md
+!tests/fixtures/omnivoice_data/omnivoice.db
+!tests/fixtures/omnivoice_data/voices/
+!tests/fixtures/omnivoice_data/voices/test-voice/
+!tests/fixtures/omnivoice_data/voices/test-voice/profile.json
+!tests/fixtures/omnivoice_data/voices/test-voice/sample.wav
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Bundled demo assets (synthetic, rendered by scripts/build_demos.sh).
+#  Ship with the installer so first-run users have working demos before any
+#  model weights download. *.wav above would hide these.
+# ─────────────────────────────────────────────────────────────────────────
+!backend/assets/samples/**/*.wav
+!backend/assets/samples/*.wav
+*.jsonl
+demo_recording.webp
+cloudflared
+cloudflared.tgz
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Reference / experiment scratch
+# ─────────────────────────────────────────────────────────────────────────
+/exp*/
+example.py
+examples/data*
+examples/download*
+examples/exp*/
+omnivoice.zip
+frontend/src-tauri/binaries/ffmpeg
+
+# cuDNN 8 compat libs (auto-installed by scripts/setup_cudnn.py)
+cudnn8_compat/
+test-results/
+
+# Research repos (local only)
+research/
+!.planning/research/
+!.planning/research/**
+marketing.md
+.coverage
+/engines/
+
+# ─────────────────────────────────────────────────────────────────────────
+#  Local planning tooling — not part of OmniVoice.
+# ─────────────────────────────────────────────────────────────────────────
+.specify/
+.antigravitycli/
+# `backlog` (the CLI task tracker) writes a config + one markdown file per task
+# into the repo root. A contributor running it locally had those three files
+# swept into a PR that was otherwise a single script (#1322 / #1306).
+backlog/
+
+playwright-report/
+.last-run.json
+
+# probe — generated HTML reports
+tests/probe/reports/
+
+# Local architecture/planning scratch (goal docs, review briefs, council
+# reports). Working notes for whoever is driving a change, not a repo artifact.
+/remote/
+
+# OmniVoice GGUF runtime build artifacts (scripts/build-omnivoice-tts.sh).
+# Only 0-byte placeholders of omnivoice-tts-* are tracked; real binaries,
+# the checksums manifest and the copied libggml shared libs ship via CI.
+bin/libggml*
+bin/checksums.sha256
+bin/omnivoice-tts-linux-aarch64
+
+# Dubbing-demo intermediates. The .mp4/.srt/manifest.json in this directory ARE
+# committed (they ship with the app); the per-language source WAVs are just the
+# inputs scripts/render_dub_demo_audio.py hands to scripts/build_dub_demo.sh.
+backend/assets/samples/demo/dubbing/*.src.wav
+
+# Stray sqlite session artifacts (`<db-path>.ses`). An in-memory DB yields the
+# literal name `:memory:.ses`, and a path containing `:` cannot be checked out
+# on Windows at all — committing one fails every Windows CI job at the git
+# checkout step, before a single test runs. Guarded by
+# tests/test_no_windows_hostile_paths.py.
+*.ses
+
+# Generated Windows MSI diagnostic logs and installer payloads
+/wix-diagnostic-artifacts/

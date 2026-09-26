@@ -1,0 +1,5 @@
+Sesly — Copyright (c) 2026 Salih Avcioglu. Licensed under AGPL-3.0-only (see
+LICENSE). Sesly is a modified version of VoiceStudio, Copyright 2024-present
+Palash Debnath and contributors (AGPL-3.0). Bundled omnivoice/ is Apache-2.0
+by its authors. Model weights keep their own licenses (the default OmniVoice
+weights are CC-BY-NC, non-commercial).
