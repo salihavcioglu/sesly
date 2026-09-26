@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="104" viewBox="0 0 640 104">
+  <title>Your brand — partner with Sesly</title>
+  <desc>Apply for a paid featured placement in the app, integrations directory, and README.</desc>
+  <rect x="1" y="1" width="638" height="102" rx="16" fill="#191420" stroke="#574051"/>
+  <circle cx="52" cy="52" r="23" fill="#30212e" stroke="#d3869b" stroke-width="1.5"/>
+  <text x="52" y="60" text-anchor="middle" fill="#f5eaf2" font-family="Arial,sans-serif" font-size="26" font-weight="700">?</text>
+  <text x="94" y="43" fill="#f5eaf2" font-family="Arial,sans-serif" font-size="19" font-weight="600">Your brand, where people build with voice.</text>
+  <text x="94" y="69" fill="#c0adbd" font-family="Arial,sans-serif" font-size="13">App placement · Integration page · README exposure</text>
+  <path d="M590 61l18-18m-15 0h15v15" fill="none" stroke="#d3869b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
