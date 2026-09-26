@@ -1,0 +1,560 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import './t3-theme.css';
+
+@source '../../../../../frontend/src/components/SearchableSelect.jsx';
+@source '../../../../../frontend/src/components/VoiceSelector.jsx';
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  /* Sesly semantic extras (not part of the shadcn base set). */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  /* Large radii are clamped: the monochrome system tops out near 12px. */
+  --radius-xl: calc(var(--radius) + 2px);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 4px);
+  --radius-4xl: calc(var(--radius) + 6px);
+}
+
+@theme {
+  --font-sans:
+    'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:
+    'Geist Mono Variable', ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* Type scale: compact UI sizes plus tight-tracked display steps. */
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.125rem;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 600;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.625rem;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--letter-spacing: -0.012em;
+  --text-heading--font-weight: 600;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.25rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-editor: 1rem;
+  --text-editor--line-height: 1.75rem;
+  --color-zinc-25: oklch(99.2% 0 0);
+}
+
+:root {
+  --workspace-footer-height: 40px;
+  --control-radius: 0.375rem;
+  --workspace-gap: 1rem;
+  --workspace-inset: 1.5rem;
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: var(--sidebar);
+  --sidebar-accent: var(--sidebar-row-hover);
+  --sidebar-accent-foreground: var(--sidebar-foreground);
+  --sidebar-ring: var(--ring);
+}
+@utility surface-glass {
+  background: var(--popover);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .surface-glass {
+    background: var(--popover);
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground text-ui antialiased;
+    overscroll-behavior: none;
+    font-optical-sizing: auto;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.012em;
+  }
+  html {
+    @apply font-sans;
+  }
+  /* Electron: the whole window is a drag region except interactive bits. */
+  .app-drag {
+    -webkit-app-region: drag;
+  }
+  .app-no-drag {
+    -webkit-app-region: no-drag;
+  }
+  input[type='range'] {
+    accent-color: var(--primary);
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+  }
+}
+
+/* Dense editors keep native scrolling, with quiet theme-aware chrome and a
+   stable gutter so content does not shift when a scrollbar appears. */
+.studio-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 38%, transparent) transparent;
+}
+.studio-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.studio-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.studio-scrollbar::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted-foreground) 38%, transparent);
+  background-clip: padding-box;
+}
+.studio-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 58%, transparent);
+  background-clip: padding-box;
+}
+
+/* Pane headers form the native title bar; interactive controls remain clickable. */
+.workspace-titlebar {
+  height: 52px;
+  -webkit-app-region: drag;
+}
+.workspace-titlebar :is(button, a, input, [role='button']) {
+  -webkit-app-region: no-drag;
+}
+.native-controls-right {
+  padding-right: 148px;
+}
+.macos-notification-safe-area main .workspace-titlebar {
+  padding-right: 3.5rem;
+}
+
+/* Keep the Lucide family visually consistent across controls and pane headings. */
+@layer base {
+  .lucide {
+    stroke-width: 1.5;
+  }
+}
+
+/* Semantic chrome roles follow the selected palette, including native drag rows. */
+.workspace-titlebar {
+  background: var(--toolbar-background);
+  color: var(--toolbar-foreground);
+}
+.workspace-titlebar [data-slot='button'] {
+  color: var(--toolbar-control-foreground);
+}
+.workspace-titlebar [data-slot='button']:hover {
+  background: var(--toolbar-control-hover);
+}
+
+/* Every workspace uses the same pane grammar: a quiet rail, compact section
+   headings, and stronger contrast only on the control currently in use. */
+.secondary-sidebar,
+.workspace-pane {
+  color: color-mix(in srgb, var(--foreground) 94%, var(--muted-foreground));
+}
+[data-slot='secondary-sidebar-content'],
+[data-slot='workspace-pane-content'] {
+  line-height: 1.45;
+}
+[data-slot='secondary-sidebar-content'] .text-muted-foreground,
+[data-slot='workspace-pane-content'] .text-muted-foreground {
+  color: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+}
+[data-slot='secondary-sidebar-content'] {
+  scrollbar-gutter: stable;
+  color: color-mix(in srgb, var(--foreground) 96%, var(--muted-foreground));
+}
+[data-slot='secondary-sidebar-content'] > * {
+  min-width: 0;
+}
+[data-slot='secondary-sidebar-content'] :is(button, label, summary) {
+  -webkit-font-smoothing: antialiased;
+}
+[data-slot='secondary-sidebar-content'] :is(p, small) {
+  text-wrap: pretty;
+}
+[data-slot='secondary-sidebar-content'] :is(input, textarea, [role='combobox']) {
+  font-size: max(0.8125rem, 12px);
+}
+[data-slot='secondary-sidebar-content'] :is(h2, legend),
+[data-slot='workspace-pane-content'] :is(h2, legend) {
+  color: var(--foreground);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+[data-slot='secondary-sidebar-content'] :is(h2, summary) > .lucide:first-child,
+[data-slot='workspace-pane-content'] :is(h2, summary) > .lucide:first-child {
+  color: var(--muted-foreground);
+}
+[data-slot='secondary-sidebar-content'] details > summary,
+[data-slot='workspace-pane-content'] details > summary {
+  min-height: 2rem;
+  align-items: center;
+  user-select: none;
+}
+[data-slot='secondary-sidebar-content'] details[open] > summary,
+[data-slot='workspace-pane-content'] details[open] > summary {
+  color: var(--foreground);
+}
+[data-slot='secondary-sidebar-content'] > :is(section, form, details):hover,
+[data-slot='workspace-pane-content'] > :is(section, form, details):hover {
+  border-color: color-mix(in srgb, var(--border) 72%, var(--foreground));
+}
+[data-slot='secondary-sidebar-content'] > :is(section, form, details):focus-within,
+[data-slot='workspace-pane-content'] > :is(section, form, details):focus-within {
+  border-color: color-mix(in srgb, var(--foreground) 22%, var(--border));
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button'] {
+  min-height: 2.375rem;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  justify-content: flex-start;
+  padding-inline: 0.625rem;
+  color: color-mix(in srgb, var(--foreground) 88%, var(--muted-foreground));
+  font-weight: 500;
+  transition-property: color, background-color, border-color, box-shadow;
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button']:hover {
+  border-color: color-mix(in srgb, var(--border) 62%, transparent);
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button']
+  .lucide {
+  color: var(--muted-foreground);
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button']:hover
+  .lucide,
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button'][aria-pressed='true']
+  .lucide {
+  color: var(--foreground);
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button'][aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--sidebar-row-active);
+  color: var(--foreground);
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button']
+  > .lucide:first-child {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+}
+.secondary-sidebar[data-variant='navigation']
+  [data-slot='secondary-sidebar-content']
+  > div[class*='border-t'] {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > :is(section, form, details, div.rounded-xl) {
+  overflow: clip;
+  border-color: var(--border);
+  background: var(--card);
+  transition-property: border-color, background-color, box-shadow;
+  transition-duration: 150ms;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > :is(section, form, details, div.rounded-xl)
+  > :is(h2, legend, summary):first-child {
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > :is(section, form, details, div.rounded-xl)
+  :is(h2, legend, summary, label) {
+  color: color-mix(in srgb, var(--foreground) 92%, var(--muted-foreground));
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > :is(section, form, details, div.rounded-xl)
+  :is(h2, summary)
+  > .lucide:first-child {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--muted-foreground);
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > details[open]
+  > summary {
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > details[open]
+  > summary
+  + * {
+  margin-top: 0.75rem;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  > :is(section, form, details, div.rounded-xl):hover {
+  border-color: color-mix(in srgb, var(--border) 80%, var(--foreground));
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(h2, legend, summary, label) {
+  text-wrap: pretty;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(h2, summary) {
+  color: color-mix(in srgb, var(--foreground) 88%, var(--muted-foreground));
+  line-height: 1.35;
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(input, textarea, [role='combobox']):focus-visible {
+  background-color: color-mix(in srgb, var(--background) 72%, transparent);
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(input, textarea, [role='combobox']) {
+  background-color: color-mix(in srgb, var(--background) 52%, transparent);
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(input, textarea, [role='combobox']) {
+  border-color: color-mix(in srgb, var(--border) 82%, var(--foreground));
+}
+.secondary-sidebar[data-variant='controls']
+  [data-slot='secondary-sidebar-content']
+  :is(input, textarea)::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground) 82%, transparent);
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > input:first-child {
+  flex: none;
+  background: color-mix(in srgb, var(--background) 55%, transparent);
+}
+.secondary-sidebar[data-variant='library'] [data-slot='secondary-sidebar-content'] {
+  overflow: hidden;
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > div[class*='overflow-y-auto'] {
+  scrollbar-gutter: stable;
+  padding-right: 0.125rem;
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  button[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--sidebar-row-active);
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  button[aria-pressed] {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 150ms;
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > div[class*='overflow-y-auto']
+  > button {
+  color: color-mix(in srgb, var(--foreground) 92%, var(--muted-foreground));
+  border-radius: var(--control-radius);
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > div[class*='overflow-y-auto']
+  > button
+  :is(.text-xs, [class*='text-muted-foreground']) {
+  color: color-mix(in srgb, var(--muted-foreground) 90%, var(--foreground));
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > div[class*='overflow-y-auto']
+  > button:hover {
+  background: color-mix(in srgb, var(--accent) 64%, transparent);
+}
+.secondary-sidebar[data-variant='library']
+  [data-slot='secondary-sidebar-content']
+  > [data-slot='button']:first-of-type {
+  flex: none;
+  justify-content: flex-start;
+  border-top: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
+  border-radius: 0.5rem;
+  margin-top: 0.25rem;
+}
+@container (max-width: 280px) {
+  [data-slot='secondary-sidebar-content'] {
+    padding-inline: 0.625rem;
+    font-size: 0.8125rem;
+  }
+  [data-slot='secondary-sidebar-header'] {
+    padding-inline: 0.625rem;
+  }
+  [data-slot='secondary-sidebar-header'] > span:nth-child(3) {
+    display: none;
+  }
+  .secondary-sidebar[data-variant='controls']
+    [data-slot='secondary-sidebar-content']
+    > :is(section, form, details, div.rounded-xl) {
+    border-radius: var(--radius);
+  }
+}
+.secondary-sidebar [role='alert'],
+.workspace-pane [role='alert'] {
+  line-height: 1.5;
+}
+.brand-sidebar {
+  color: var(--sidebar-foreground);
+}
+.brand-sidebar .workspace-titlebar {
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+}
+.brand-sidebar .text-muted-foreground {
+  color: var(--sidebar-muted-foreground);
+}
+.brand-sidebar:has(#sidebar-engine-details:not([hidden])) [data-slot='workspace-navigation'] {
+  max-height: 32vh;
+}
+@media (max-height: 680px) {
+  .brand-sidebar [data-slot='workspace-navigation'] {
+    max-height: 32vh;
+  }
+}
+
+.performance-tier-button {
+  background: transparent;
+  box-shadow: none;
+}
+.performance-tier-button:hover:not(:disabled) {
+  background: var(--accent);
+}
+.performance-tier-button[data-selected='true'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* "Glass" is a flat, opaque material in the monochrome system: no blur,
+   sheen, gradient, or tinted reflections. The preference remains for
+   compatibility but no longer changes rendering. */
+html[data-glass='true'] .glass-panel {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: none;
+}
+html[data-glass='true'] .composer-surface {
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  box-shadow: none;
+}
+html[data-glass='true'] .surface-glass {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Keep controls opaque: Glass mode clears the bg-background surface utility. */
+[data-slot='switch'].app-switch {
+  background: color-mix(in srgb, var(--foreground) 22%, var(--background));
+  border-color: color-mix(in srgb, var(--foreground) 30%, var(--background));
+  transition-property: background-color, border-color, box-shadow;
+}
+[data-slot='switch'].app-switch[data-checked] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+[data-slot='switch-thumb'].app-switch-thumb {
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+}
+[data-slot='switch'][data-checked] .app-switch-thumb {
+  background: var(--primary-foreground);
+}
+[data-slot='switch'].app-switch:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='switch'].app-switch { transition: none; }
+}

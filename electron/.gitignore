@@ -1,0 +1,13 @@
+node_modules
+out
+dist
+release
+*.tsbuildinfo
+.vite
+.tmp*
+artifacts*.png
+gallery-debug.png
+installer-*.png
+tmp-*.png
+package-*.log
+.dev-*.log

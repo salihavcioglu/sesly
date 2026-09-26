@@ -1,0 +1,27 @@
+import { expect, it } from 'vitest';
+import { trimmedAudio } from './trim-audio';
+const buffer = {
+  sampleRate: 100,
+  duration: 2,
+  numberOfChannels: 2,
+  getChannelData: (channel: number) => new Float32Array(200).fill(channel ? -0.25 : 0.75),
+} as AudioBuffer;
+it('exports the exact selected interval as mono PCM WAV', async () => {
+  const blob = trimmedAudio(buffer, 0.5, 1.5);
+  const bytes = await blob.arrayBuffer();
+  const view = new DataView(bytes);
+  expect(bytes.byteLength).toBe(44 + 100 * 2);
+  expect(view.getUint16(22, true)).toBe(1);
+  expect(view.getUint32(24, true)).toBe(100);
+  expect(view.getInt16(44, true)).toBe(8191);
+});
+it('rejects invalid, empty and out-of-bounds selections', () => {
+  for (const [start, end] of [
+    [NaN, 1],
+    [-1, 1],
+    [1, 1],
+    [2, 1],
+    [0, 3],
+  ])
+    expect(() => trimmedAudio(buffer, start, end)).toThrow('Invalid trim');
+});

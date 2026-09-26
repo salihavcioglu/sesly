@@ -1,0 +1,61 @@
+.workspace-footer-host {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.workspace-footer-strip {
+  display: flex;
+  direction: ltr;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--workspace-footer-height);
+  padding: 2px 8px;
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+}
+
+.workspace-footer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sidebar-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.2;
+  text-align: center;
+  transition: background-color 150ms, border-color 150ms, color 150ms;
+}
+
+.workspace-footer-action:hover {
+  border-color: color-mix(in srgb, var(--sidebar-border) 60%, transparent);
+  background: var(--sidebar-accent);
+}
+
+.workspace-footer-action span {
+  direction: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-footer-action:focus-visible {
+  outline: 2px solid var(--sidebar-ring);
+  outline-offset: 1px;
+}
+
+@container (max-width: 460px) {
+  .workspace-footer-action {
+    flex: 1 1 0;
+  }
+}

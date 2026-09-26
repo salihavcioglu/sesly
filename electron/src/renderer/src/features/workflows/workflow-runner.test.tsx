@@ -1,0 +1,22 @@
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+const state = vi.hoisted(() => ({ data: undefined as object | undefined }));
+vi.mock('@/hooks/use-engines', () => ({ useEngines: () => ({ data: state.data }) }));
+vi.mock('@/hooks/use-tts-readiness', () => ({ useTtsReadiness: () => 'not-installed' }));
+vi.mock('@/components/engine-notice', () => ({ EngineNotice: () => null }));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
+vi.mock('./workflow-run-store', () => ({ readWorkflowRun: async () => null, writeWorkflowRun: vi.fn() }));
+vi.mock('./workflow-operations', () => ({ workflowOperations: {} }));
+import { WorkflowRunner } from './workflow-runner';
+import { makeProcessingWorkflow } from './workflow-model';
+afterEach(cleanup);
+it('waits for engine identities before starting an ASR-only run without requiring TTS', async () => {
+  const document = makeProcessingWorkflow('Transcript', ['audio', 'transcribe', 'end']);
+  document.steps[0].media = [{ id: 'source', name: 'audio.wav', type: 'audio/wav', size: 10 }];
+  const onBusy = vi.fn(); const onClose = vi.fn();
+  const view = render(<WorkflowRunner document={document} onBusy={onBusy} onClose={onClose} />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'workflowRun.run' })).toBeDisabled());
+  state.data = { asr: { active: 'whisper', active_model: 'small' } };
+  view.rerender(<WorkflowRunner document={document} onBusy={onBusy} onClose={onClose} />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'workflowRun.run' })).toBeEnabled());
+});

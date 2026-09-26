@@ -1,0 +1,69 @@
+/* Navigation icons are neutral: muted at rest, foreground when the row is
+   hovered, focused, or current. Hover motion is kept subtle and short. */
+.workspace-nav-item:is(:hover, :focus-visible, [aria-current='page'], [data-active='true'])
+  .workspace-nav-icon {
+  color: var(--foreground);
+}
+
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='pulse'] {
+  animation: workspace-icon-pulse 320ms ease-out both;
+}
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='tilt'] {
+  animation: workspace-icon-tilt 360ms ease-out both;
+}
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='nudge'] {
+  animation: workspace-icon-nudge 320ms ease-out both;
+}
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='lift'] {
+  animation: workspace-icon-lift 320ms ease-out both;
+}
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='wave'] {
+  animation: workspace-icon-wave 360ms ease-out both;
+}
+.workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-icon[data-motion='turn'] {
+  animation: workspace-icon-turn 360ms ease-out both;
+}
+
+@keyframes workspace-icon-pulse {
+  45% {
+    transform: scale(1.1);
+  }
+}
+@keyframes workspace-icon-tilt {
+  40% {
+    transform: rotate(-9deg);
+  }
+  72% {
+    transform: rotate(4deg);
+  }
+}
+@keyframes workspace-icon-nudge {
+  45% {
+    transform: translateX(2px);
+  }
+}
+@keyframes workspace-icon-lift {
+  45% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes workspace-icon-wave {
+  35% {
+    transform: scaleY(0.84);
+  }
+  70% {
+    transform: scaleY(1.08);
+  }
+}
+@keyframes workspace-icon-turn {
+  50% {
+    transform: rotate(16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-nav-item .workspace-nav-icon {
+    animation: none !important;
+    transition-duration: 0ms;
+  }
+}

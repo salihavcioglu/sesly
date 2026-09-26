@@ -1,0 +1,31 @@
+[package]
+name = "sesly-desktop-bridge"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cap-std = "3"
+getrandom = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["json", "blocking", "multipart", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"
+# Same native registration backend already pinned by Tauri.
+global-hotkey = "=0.8.0"
+arboard = { version = "3", features = ["wayland-data-control"] }
+enigo = { version = "0.3", features = ["serde"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_Security"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+dispatch2 = { version = "0.3", default-features = false, features = ["std"] }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSRunningApplication", "NSWorkspace"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = "0.13"
+zbus = "5.16"
+dirs-next = "2"
+log = "0.4"

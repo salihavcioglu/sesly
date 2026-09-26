@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.web.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["vite/client", "@testing-library/jest-dom"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/renderer/src/*"]
+    }
+  },
+  "include": [
+    "src/renderer/src/**/*",
+    "src/preload/index.d.ts",
+    "src/shared/**/*",
+    "src/renderer/env.d.ts",
+    "../frontend/src/utils/languageRejection.ts",
+    "../frontend/src/utils/generationFailureMessage.ts",
+    "../frontend/src/utils/coalescedJsonStorage.ts",
+    "../frontend/src/utils/indexedDbLongformStore.ts",
+    "../frontend/src/utils/cookieExport.ts",
+    "../frontend/src/api/types.ts",
+    "../frontend/src/api/authSession.ts",
+    "../frontend/src/utils/runCrashRecord.ts",
+    "../frontend/src/utils/nativeExit.ts",
+    "../frontend/src/utils/backendContact.ts",
+    "../frontend/src/utils/deploymentMode.ts",
+    "../frontend/src/utils/errorDocsMap.ts",
+    "../frontend/src/utils/analytics.ts",
+    "../frontend/src/api/external.ts",
+    "../frontend/src/api/dialects.ts"
+  ]
+}

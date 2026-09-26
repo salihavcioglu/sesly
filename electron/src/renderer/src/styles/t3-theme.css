@@ -1,0 +1,187 @@
+/* Role vocabulary adapted from T3 Code apps/web/src/index.css (MIT).
+ * See electron/T3CODE-LICENSE.txt.
+ *
+ * Sesly's default palette is strictly monochrome: black, white, and neutral
+ * grays. The solid action color is the foreground (white on black in dark
+ * mode, black on white in light mode); hue is reserved for status. */
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --app-chrome-background: #fafafa;
+  --toolbar-background: var(--app-chrome-background);
+  --toolbar-foreground: var(--foreground);
+  --toolbar-border: var(--border);
+  --toolbar-control: var(--popover);
+  --toolbar-control-foreground: var(--foreground);
+  --toolbar-control-hover: var(--accent);
+  --surface-raised: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --primary-foreground: #fafafa;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #6b6b6b;
+  --placeholder: #a1a1a1;
+  --secondary-label: var(--muted-foreground);
+  --icon-muted: var(--muted-foreground);
+  --message-surface: var(--accent);
+  --message-foreground: var(--foreground);
+  --message-action: var(--primary);
+  --message-action-foreground: var(--primary-foreground);
+  --message-action-hover: #262626;
+  --accent: #f2f2f2;
+  --accent-foreground: #0a0a0a;
+  --error: oklch(0.55 0.17 25);
+  --error-foreground: oklch(0.48 0.17 25);
+  --tool-error-icon: var(--error);
+  --error-surface: color-mix(in srgb, var(--error) 8%, transparent);
+  --destructive: var(--error);
+  --border: #e5e5e5;
+  --input: #d4d4d4;
+  --ring: #a1a1a1;
+  --destructive-foreground: var(--error-foreground);
+  --info: #6b6b6b;
+  --info-foreground: #404040;
+  --success: oklch(0.6 0.13 150);
+  --success-foreground: oklch(0.48 0.12 150);
+  --warning: oklch(0.7 0.14 70);
+  --warning-foreground: oklch(0.52 0.13 60);
+  --warning-surface: color-mix(in srgb, var(--warning) 10%, transparent);
+  --update: var(--foreground);
+  --update-foreground: var(--foreground);
+  --update-surface: var(--accent);
+  /* Keep every sidebar primitive on the same light surface hierarchy, including
+     portaled mobile sheets and settings navigation outside the app sidebar. */
+  --sidebar: #fafafa;
+  --sidebar-foreground: var(--foreground);
+  --sidebar-muted-foreground: var(--muted-foreground);
+  --sidebar-control-surface: #f2f2f2;
+  --sidebar-row-hover: #efefef;
+  --sidebar-row-active: #e8e8e8;
+  --sidebar-row-selected: #e8e8e8;
+  --sidebar-border: var(--border);
+  --sidebar-stage-fade: var(--sidebar);
+  --code-background: #f5f5f5;
+  --code-foreground: var(--foreground);
+  --terminal-background: var(--background);
+  --terminal-foreground: var(--foreground);
+  --terminal-cursor: var(--foreground);
+  --terminal-selection-background: rgb(0 0 0 / 12%);
+
+  @variant dark {
+    color-scheme: dark;
+    /* True neutral near-black canvas. Hairline borders and hover fills provide
+       separation; no tinted or milky gray fills. */
+    --background: #0a0a0a;
+    --app-chrome-background: #0a0a0a;
+    --surface-raised: #161616;
+    --foreground: #fafafa;
+    --card: #111111;
+    --card-foreground: #fafafa;
+    --popover: #161616;
+    --popover-foreground: #fafafa;
+    --primary: #fafafa;
+    --primary-foreground: #0a0a0a;
+    --secondary: #1a1a1a;
+    --secondary-foreground: #fafafa;
+    --muted: #171717;
+    --muted-foreground: #a1a1a1;
+    --placeholder: #6b6b6b;
+    --message-action-hover: #e5e5e5;
+    --accent: #1c1c1c;
+    --accent-foreground: #fafafa;
+    --error: oklch(0.7 0.15 25);
+    --error-foreground: oklch(0.76 0.13 25);
+    --tool-error-icon: var(--error-foreground);
+    --error-surface: color-mix(in srgb, var(--error) 14%, transparent);
+    --border: #1f1f1f;
+    --input: #2a2a2a;
+    --ring: #737373;
+    --info: #a1a1a1;
+    --info-foreground: #d4d4d4;
+    --success: oklch(0.72 0.12 150);
+    --success-foreground: oklch(0.78 0.11 150);
+    --warning: oklch(0.8 0.13 80);
+    --warning-foreground: oklch(0.84 0.12 85);
+    --warning-surface: color-mix(in srgb, var(--warning) 12%, transparent);
+    --sidebar: #0a0a0a;
+    --sidebar-control-surface: #161616;
+    --sidebar-row-hover: #171717;
+    --sidebar-row-active: #202020;
+    --sidebar-row-selected: #202020;
+    --sidebar-stage-fade: var(--sidebar);
+    --code-background: #111111;
+    --terminal-selection-background: rgb(255 255 255 / 16%);
+  }
+}
+
+html[data-theme-id]:not([data-theme-id='']) {
+  --background: var(--app-theme-canvas);
+  --app-chrome-background: var(--app-theme-chrome);
+  --toolbar-background: var(--app-theme-toolbar);
+  --toolbar-foreground: var(--app-theme-toolbar-foreground);
+  --toolbar-border: var(--app-theme-toolbar-border);
+  --toolbar-control: var(--app-theme-toolbar-control);
+  --toolbar-control-foreground: var(--app-theme-toolbar-control-foreground);
+  --toolbar-control-hover: var(--app-theme-toolbar-control-hover);
+  --surface-raised: var(--app-theme-surface-raised);
+  --foreground: var(--app-theme-text);
+  --card: var(--app-theme-surface);
+  --card-foreground: var(--app-theme-text);
+  --popover: var(--app-theme-surface-overlay);
+  --popover-foreground: var(--app-theme-text);
+  /* Solid controls (CTAs, switches, sliders, the send button) all share the
+     theme's action color so every "act now" affordance reads consistently. */
+  --primary: var(--app-theme-message-action);
+  --primary-foreground: var(--app-theme-message-action-foreground);
+  --secondary: var(--app-theme-secondary);
+  --secondary-foreground: var(--app-theme-secondary-foreground);
+  --muted: var(--app-theme-muted);
+  --muted-foreground: var(--app-theme-muted-foreground);
+  --placeholder: var(--app-theme-placeholder);
+  --secondary-label: var(--app-theme-secondary-label);
+  --icon-muted: var(--app-theme-icon-muted);
+  --accent: var(--app-theme-accent-surface);
+  --accent-foreground: var(--app-theme-accent-surface-foreground);
+  --message-surface: var(--app-theme-message-surface);
+  --message-foreground: var(--app-theme-message-foreground);
+  --message-action: var(--app-theme-message-action);
+  --message-action-foreground: var(--app-theme-message-action-foreground);
+  --message-action-hover: var(--app-theme-message-action-hover);
+  --error: var(--app-theme-error);
+  --error-foreground: var(--app-theme-error-foreground);
+  --tool-error-icon: var(--error-foreground);
+  --error-surface: var(--app-theme-error-surface);
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+  --warning: var(--app-theme-warning);
+  --warning-foreground: var(--app-theme-warning-foreground);
+  --warning-surface: var(--app-theme-warning-surface);
+  --update: var(--app-theme-update);
+  --update-foreground: var(--app-theme-update-foreground);
+  --update-surface: var(--app-theme-update-surface);
+  --border: var(--app-theme-border);
+  --input: var(--app-theme-input);
+  --ring: var(--app-theme-focus);
+  --sidebar: var(--app-theme-sidebar);
+  --sidebar-foreground: var(--app-theme-sidebar-foreground);
+  --sidebar-muted-foreground: var(--app-theme-sidebar-muted-foreground);
+  --sidebar-control-surface: var(--app-theme-sidebar-control-surface);
+  --sidebar-row-hover: var(--app-theme-sidebar-row-hover);
+  --sidebar-row-active: var(--app-theme-sidebar-row-active);
+  --sidebar-row-selected: var(--app-theme-sidebar-row-selected);
+  --sidebar-border: var(--app-theme-sidebar-border);
+  --sidebar-stage-fade: var(--app-theme-sidebar);
+  --code-background: var(--app-theme-code-background);
+  --code-foreground: var(--app-theme-code-foreground);
+  --terminal-background: var(--app-theme-terminal-background);
+  --terminal-foreground: var(--app-theme-terminal-foreground);
+  --terminal-cursor: var(--app-theme-terminal-cursor);
+  --terminal-selection-background: var(--app-theme-terminal-selection-background);
+}

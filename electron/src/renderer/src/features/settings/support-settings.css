@@ -1,0 +1,161 @@
+/* Page-local editorial layout. Theme colors and local system fonts follow the app. */
+.support-studio {
+  --support-surface: color-mix(in srgb, var(--foreground) 3%, var(--background));
+  --support-line: color-mix(in srgb, var(--foreground) 10%, transparent);
+  width: 100%;
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: 16px 0 24px;
+  color: var(--foreground);
+  container-type: inline-size;
+}
+.support-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 20px 34px;
+}
+.support-emblem {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 100px;
+  margin-bottom: 22px;
+  color: var(--primary);
+}
+.support-intro h1 {
+  max-width: 100%;
+  font-size: clamp(30px, 4.6cqi, 48px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+.support-intro p {
+  max-width: 470px;
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  text-wrap: balance;
+}
+.support-community {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 17px 0 27px;
+}
+.support-community > span {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.support-studio .support-community a {
+  min-height: 44px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--primary);
+  font-size: 13px;
+  white-space: normal;
+}
+.support-community a svg:last-child {
+  width: 12px;
+  height: 12px;
+}
+.support-contact {
+  margin-top: 28px;
+  border-top: 1px solid var(--support-line);
+  padding-top: 18px;
+}
+.support-contact-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.support-contact h2 {
+  font-size: 14px;
+  font-weight: 550;
+}
+.support-contact-heading button {
+  min-height: 44px;
+}
+.support-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.support-studio .support-channel-grid a {
+  height: auto;
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  white-space: normal;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.support-channel-grid a > svg:first-child {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.5;
+  color: var(--foreground);
+}
+.support-channel-grid a > svg:last-child {
+  display: none;
+}
+.support-studio a:focus-visible,
+.support-studio button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+@media (hover: hover) {
+  .support-studio .support-channel-grid a:hover {
+    background: var(--support-surface);
+    border-color: var(--support-line);
+    color: var(--foreground);
+  }
+  .support-studio .support-community a:hover,
+  .support-studio .support-tile-actions a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .support-studio a,
+  .support-studio button {
+    transition:
+      background-color 180ms ease,
+      color 180ms ease,
+      border-color 180ms ease,
+      transform 180ms ease;
+  }
+}
+@container (max-width: 660px) {
+  .support-channel-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .support-intro {
+    padding-inline: 0;
+  }
+}
+.support-emblem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
