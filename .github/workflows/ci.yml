@@ -1,0 +1,435 @@
+# PR-gated continuous integration for the maintained Electron desktop,
+# shared backend, web frontend and native bridge.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Run all JavaScript actions on Node 24 (GH deprecates Node 20 in Sep 2026).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  installer:
+    name: Electron installer contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Shell installers and Worker routing
+        working-directory: electron
+        run: |
+          sh -n ../scripts/install.sh
+          node --test tests/shell-installer.test.mjs
+      - name: PowerShell installer flows
+        shell: pwsh
+        run: ./electron/tests/powershell-installer.ps1
+
+  test:
+    name: Tests (backend + frontend)
+    runs-on: ubuntu-22.04
+    env:
+      # Same restricted-network resilience the smoke matrix already sets. This
+      # job resolves the same direct-URL dependency and had none of it, which
+      # is why it was the one that kept dying (see scripts/uv-sync-retry.sh).
+      UV_HTTP_TIMEOUT: "120"
+      UV_HTTP_RETRIES: "5"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # enable-cache persists ~/.cache/uv across runs, keyed on uv.lock —
+      # turns `uv sync` from ~45 s cold to ~5 s warm.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # Node 22 is needed for --experimental-strip-types so node:test can
+      # import .ts files directly from frontend/src/api/*.
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      # apt install ffmpeg is ~30 s every run; cache the resolved .debs.
+      - name: System deps (ffmpeg)
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: ffmpeg
+          version: 1.0
+
+      - name: Install Python deps
+        # `--all-extras` installs optional engine deps (e.g. `supertonic`)
+        # so their tests can exercise the real import path, not the
+        # "package not installed" fallback. Smoke job below stays on bare
+        # `uv sync` because smoke only hits /health + fixture profiles.
+        #
+        # Retried because one dependency — en-core-web-sm — resolves to a
+        # direct GitHub release URL, and github.com intermittently answers
+        # `http2 error: refused stream before processing any application
+        # logic`. uv's own 3 retries all land inside the same few seconds and
+        # fail together, which has cost otherwise-green runs (#1517, #1518).
+        # Backing off between whole attempts is what actually clears it.
+        run: bash scripts/uv-sync-retry.sh --all-extras
+
+      # HF_HUB_OFFLINE=1 is a recurrence guard, not an optimization: a test
+      # that reaches huggingface.co fails fast and loud instead of silently
+      # downloading model weights mid-suite (the preload_model() Hub-probe
+      # bug pulled the full 2.3 GB k2-fsa/OmniVoice checkpoint into every
+      # networked empty-cache run before it was caught). All legitimate HF
+      # interactions in tests are stubbed; anything that trips this is a
+      # test-isolation bug.
+      - name: Run pytest
+        run: uv run --no-sync pytest tests/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+
+      # Docs-drift CI gate (Phase 1 INST-06). The validator extracts code
+      # blocks tagged `<!-- validate -->` from docs/install/*.md and asserts
+      # each line appears in scripts/desktop-prod.sh after normalisation.
+      # Its own correctness is enforced by tests/scripts/test_validate_install_docs.py
+      # (checker B-5) — those tests run in the previous step.
+      - name: Validate install docs against desktop-prod.sh
+        run: python scripts/validate-install-docs.py
+
+      # `backend/tests/` mounts routers on bare FastAPI apps (no heavy main
+      # import chain) with a hermetic data dir from its conftest.py. It no
+      # longer stubs sys.modules, so mixed sessions with tests/ are safe;
+      # the separate session is kept for cheaper, clearer CI output.
+      - name: Run pytest (backend/tests, isolated)
+        run: uv run --no-sync pytest backend/tests/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"  # same no-silent-downloads guard as tests/
+
+      # Cache ~/.bun/install/cache keyed on bun.lock — `bun install` drops
+      # from ~15 s cold to near-instant on warm cache.
+      - name: Cache bun deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock', 'bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend deps
+        working-directory: frontend
+        # --frozen-lockfile so a frontend/package.json change that forgets to
+        # regenerate the root bun.lock fails HERE (fast) instead of only in the
+        # Docker build (deploy/Dockerfile), which is what reddened main on #485.
+        run: bun install --frozen-lockfile
+
+      # checkJs is true in tsconfig for IDE feedback, but 947 pre-existing
+      # JS errors remain. Override to false in CI so only .ts files block.
+      # Sourced from `typecheck:ci` in frontend/package.json so the release
+      # workflow runs an identical command — drift broke v0.3.x release runs.
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: bun run typecheck:ci
+
+      # oxlint gate — fast Rust linter, blocks on errors so lint debt can't
+      # re-accumulate (warnings, incl. the react-compiler advisories in
+      # `lint:hooks`, are non-blocking). See frontend/.oxlintrc.json.
+      - name: Frontend lint (oxlint)
+        working-directory: frontend
+        run: bun run lint
+
+      # oxfmt format gate — JS/TS/JSX only (CSS/JSON/Tauri excluded; see
+      # frontend/.oxfmtrc.json). `bun run format` fixes locally.
+      - name: Frontend format check (oxfmt)
+        working-directory: frontend
+        run: bun run format:check
+
+      # `bun run test` (frontend/package.json), not `bunx vitest` — bunx
+      # resolves by npm package name and can miss workspace-hoisted bins,
+      # then falls back to fetching from npm (#962 class).
+      - name: Run Vitest (frontend)
+        working-directory: frontend
+        run: bun run test
+
+      # Legacy node:test runner for tests/frontend/*.test.mjs
+      - name: Run frontend node:test (legacy)
+        working-directory: frontend
+        run: node --experimental-strip-types --no-warnings --test ../tests/frontend/*.test.mjs
+
+      # Electron used to be built only after a release started, so renderer,
+      # preload and packaging regressions could pass the required PR gate.
+      # Keep this command shared with electron-release.yml through the root script.
+      - name: Electron typecheck, tests and production contract
+        run: bun run check:electron
+
+      # Production-bundle blank-screen gate. Everything above runs UN-minified
+      # (dev server + Vitest/jsdom), so a crash that exists ONLY in the minified
+      # release bundle — a TDZ reorder that throws before React mounts — passes
+      # every check and ships a black screen. That is how v0.3.22 went out (#1178),
+      # and it recurred pre-0.3.23. This builds the real dist/ and asserts the app
+      # actually mounts into #root. See frontend/e2e-prod/prod-bundle-smoke.spec.ts.
+      # (The in-app root <ErrorBoundary> in main-app.jsx catches such throws at
+      # runtime; this gate stops them reaching a release in the first place.)
+      - name: Install Playwright chromium
+        working-directory: frontend
+        run: bunx playwright install --with-deps chromium
+      - name: Production-bundle smoke — no blank screen
+        working-directory: frontend
+        run: bun run test:prod-bundle
+      - name: Electron renderer workflow smokes
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OMNIVOICE_PORT=3999
+          export SESLY_UI_URL=http://localhost:3912
+          export PLAYWRIGHT_CHANNEL=chromium
+          export HF_HUB_OFFLINE=1
+          export HF_HUB_CACHE="$(mktemp -d)"
+          bun run --cwd electron smoke:server > /tmp/sesly-electron-smoke.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in {1..60}; do
+            if curl --fail --silent --show-error "$SESLY_UI_URL" >/dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          curl --fail --silent --show-error "$SESLY_UI_URL" >/dev/null || {
+            cat /tmp/sesly-electron-smoke.log
+            exit 1
+          }
+          node electron/tests/playback-smoke.mjs
+          node electron/tests/dub-smoke.mjs
+          node electron/tests/longform-layout-smoke.mjs
+
+  linux-native-package:
+    name: Linux native package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/desktop-bridge -> target
+          key: linux-native-package
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxdo-dev libxtst-dev libx11-dev libxkbcommon-dev libwayland-dev libssl-dev pkg-config
+      - name: Verify relocation without build-time libraries
+        run: node --test electron/tests/native-linux-libraries.test.mjs
+      - name: Build and validate real Linux native package
+        run: |
+          cargo build --locked --release --manifest-path native/desktop-bridge/Cargo.toml
+          node electron/tests/native-linux-package.mjs
+
+  # ── Cross-platform Python runtime smoke (Phase 0 GATE-02) ───────────────
+  # Loads the frozen tests/fixtures/omnivoice_data/ fixture and boots the
+  # FastAPI app in-process via TestClient on macOS/Windows/Linux. Catches
+  # platform-specific Python import / path bugs that the Linux-only `test`
+  # job above misses. Narrow scope (tests/smoke/ only) — full pytest stays
+  # on Linux until Phase 1's INST-01 lands setuptools for WhisperX.
+  smoke-matrix:
+    name: Smoke (${{ matrix.label }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS
+            backend_supported: true
+          - os: macos-15-intel
+            label: macOS Intel
+            backend_supported: false
+          - os: windows-2022
+            label: Windows
+            backend_supported: true
+          - os: ubuntu-22.04
+            label: Linux
+            backend_supported: true
+    runs-on: ${{ matrix.os }}
+    # Priced for a COLD `uv sync`, on every platform.
+    #
+    # The previous split (Windows 25, Linux/macOS 10) came from a warm-cache
+    # measurement — Linux and macOS finish in ~65 s when setup-uv restores its
+    # cache, so 10 looked generous. Then run 30439640107 hit
+    # "Failed to restore: Cache service responded with 400", Linux installed
+    # torch from scratch, and the leg was killed at 10m17s. The 65 s was the
+    # cache, not the platform.
+    #
+    # A cache miss is not rare enough to treat as an outage (GitHub's cache
+    # service 400s, a lockfile change invalidates the key, a new runner image
+    # starts empty), and a timeout here is self-perpetuating: the leg dies
+    # before the post-step saves the cache, so the next run is cold too.
+    # 25 everywhere is still bounded — a genuinely wedged job is caught in
+    # minutes, not hours — and warm runs land nowhere near it.
+    timeout-minutes: 25
+    env:
+      # Restricted-network resilience (RESEARCH Pitfall #6) — keeps uv from
+      # giving up on the first slow PyPI / python-build-standalone fetch.
+      UV_HTTP_TIMEOUT: "120"
+      UV_HTTP_RETRIES: "5"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # ffmpeg + libsndfile are needed by soundfile / audio fixtures even
+      # though the silence WAV doesn't decode anything heavy — keeps test
+      # collection from import-erroring on optional audio modules.
+      - name: System deps (macOS)
+        if: runner.os == 'macOS' && matrix.backend_supported
+        run: brew install ffmpeg libsndfile || true
+
+      - name: System deps (Windows)
+        if: runner.os == 'Windows' && matrix.backend_supported
+        shell: bash
+        run: |
+          # The community chocolatey feed 50x's intermittently (broke PR runs on
+          # 2026-07-20 and 2026-07-28) — retry with backoff before failing.
+          #
+          # Test the OUTCOME, not choco's exit code. On 2026-07-28 the feed
+          # returned 503, choco reported "Unable to find package 'ffmpeg'" and
+          # "installed 0/0 packages" — and still exited 0. The `&& break` that
+          # was supposed to guard this fired on the first attempt, no retry ran,
+          # and the job died one line later on `ffmpeg: command not found`.
+          # A retry that trusts a lying exit code is not a retry.
+          for i in 1 2 3; do
+            choco install ffmpeg -y --no-progress || true
+            hash -r 2>/dev/null || true
+            if command -v ffmpeg >/dev/null 2>&1; then break; fi
+            # No backoff after the last attempt — there is no fourth try to
+            # wait for, and sleeping 90s only delays an already-doomed job.
+            if [ "$i" -eq 3 ]; then
+              echo "choco failed to produce ffmpeg after 3 attempts"
+              break
+            fi
+            echo "choco attempt $i did not produce ffmpeg — retrying in $((i * 30))s"
+            sleep $((i * 30))
+          done
+          # Chocolatey is one distribution channel, not the dependency. When
+          # its feed is down across every retry (2026-08-13: three attempts,
+          # three 'installed 0/1'), fall back to the static gyan.dev release
+          # build GitHub mirror — the same binary, no feed in the path.
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            echo "::warning::choco feed down — falling back to static ffmpeg build"
+            curl -fsSL --retry 3 -o /tmp/ffmpeg.zip \
+              https://github.com/GyanD/codexffmpeg/releases/download/7.1/ffmpeg-7.1-essentials_build.zip
+            unzip -q /tmp/ffmpeg.zip -d /tmp/ffmpeg
+            bindir=$(dirname "$(find /tmp/ffmpeg -name ffmpeg.exe | head -1)")
+            echo "$bindir" >> "$GITHUB_PATH"
+            export PATH="$bindir:$PATH"
+          fi
+          ffmpeg -version
+
+      - name: System deps (Linux)
+        if: runner.os == 'Linux' && matrix.backend_supported
+        uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: ffmpeg libsndfile1
+          version: 1.0
+
+      - name: Install Python deps (including PocketTTS)
+        # PocketTTS is an opt-in engine, but installing its pinned extra here
+        # proves that the same dependency set resolves on every supported local
+        # backend host. The Intel-Mac leg separately pins the documented
+        # unsupported contract: its UI is a remote-backend client only (#889).
+        if: matrix.backend_supported
+        run: bash scripts/uv-sync-retry.sh --extra pockettts
+
+      - name: Verify the documented Intel Mac contract
+        if: ${{ !matrix.backend_supported }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import platform
+          import tomllib
+
+          assert platform.system() == "Darwin"
+          assert platform.machine() == "x86_64"
+          root = Path.cwd()
+          project = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))
+          extra = project["project"]["optional-dependencies"]["pockettts"]
+          assert extra == [
+              "pocket-tts==2.1.0 ; sys_platform != 'darwin' or platform_machine != 'x86_64'"
+          ]
+          docs = (root / "docs/install/macos.md").read_text("utf-8")
+          assert "Intel Macs are not supported" in docs
+          PY
+
+      - name: Run smoke tests
+        # Exercise credential paths and the Windows accept guard natively.
+        if: matrix.backend_supported
+        run: uv run --no-sync pytest tests/smoke/ tests/test_hf_token_cache_paths.py tests/test_win_accept_guard.py -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"  # same no-silent-downloads guard as the main pytest job
+          HF_HUB_CACHE: ${{ runner.temp }}/pockettts-empty-hf-cache
+
+      # The isolated backend session, on Windows. The `test` job runs it on
+      # Linux only, which is how four tests that CANNOT pass on Windows shipped
+      # unnoticed: two reach for os.WNOHANG and os.waitid (POSIX-only, an
+      # AttributeError before the first assertion), one asserts a RuntimeError
+      # that `backend_drain_fd` returns None instead of raising off POSIX, and
+      # one raced the OS reaping a crashed child — a race Linux won and Windows
+      # lost every time. All four were invisible to CI and hit every Windows
+      # contributor on their first `pytest` run. Forty seconds closes the class.
+      - name: Isolated backend session (Windows)
+        if: runner.os == 'Windows' && matrix.backend_supported
+        run: uv run --no-sync pytest backend/tests/ -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+
+      # Artifact commits depend on native Windows rename/replace semantics;
+      # Linux emulation cannot exercise sharing rules or path parsing.
+      # test_worker_task_store and test_worker_inbound_transport joined this
+      # step after a Windows run found a real portability bug the Linux-only
+      # `test` job could not see: a staged input's artifact id was built with
+      # os.path.join, so a Windows control plane persisted and shipped
+      # `inputs\<sha>.wav` — which a Linux worker cannot resolve. These suites
+      # need no ffmpeg, so they cost seconds here.
+      - name: Media-tool installation and lock recovery
+        if: matrix.backend_supported
+        run: uv run --no-sync pytest tests/test_media_tools.py -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+          HF_HUB_CACHE: ${{ runner.temp }}/media-tools-empty-hf-cache
+      - name: Remote-worker artifact paths (Windows)
+        if: runner.os == 'Windows' && matrix.backend_supported
+        run: >-
+          uv run --no-sync pytest
+          tests/test_worker_upload_server.py
+          tests/test_worker_server_integrity.py
+          tests/test_worker_task_store.py
+          tests/test_worker_inbound_transport.py
+          -q --tb=short
+        env:
+          HF_HUB_OFFLINE: "1"
+          HF_HUB_CACHE: ${{ runner.temp }}/worker-artifact-empty-hf-cache

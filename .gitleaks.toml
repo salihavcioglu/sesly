@@ -1,0 +1,28 @@
+# Gitleaks config — extends the default ruleset.
+#
+# Every entry below is an exact, anchored non-secret value. No PostHog project
+# token is committed in this repo (removed for this fork; the token comes only
+# from SESLY_POSTHOG_KEY / POSTHOG_PROJECT_TOKEN / VITE_POSTHOG_KEY at
+# build/run time — see `tests/test_no_committed_analytics_token.py`), so no
+# `phc_` allowlist entry is needed here. Personal keys (`phx_`) remain fully
+# banned.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Exact public/test literals misclassified as generic API keys"
+regexes = [
+  # Reviewed immutable Hugging Face commit for the Higgs tokenizer.
+  '''^528e871c2a26c4f0f7773b9754e2e1acae20899d$''',
+  # Deliberately synthetic fixtures that exercise HF-token redaction/storage.
+  '''^hf_abcdefghijklmnopqrstuvwxyz01234567890abcd$''',
+  '''^hf_abcdefghijklmnopqrstuvwxyz0123456789ABCDEF$''',
+  '''^hf_QWERTYUIOPasdfghjklZXCVBNM0123456789xyzAB$''',
+  # NLLB generation length argument, not the value of a credential.
+  '''^max_length=400$''',
+  # Dubbing pane split-position localStorage key, not a credential.
+  '''^omnivoice\.dubSplit\.v1$''',
+  # cryptography's Ed25519 private-key type name, not key material.
+  '''^Ed25519PrivateKey$''',
+]

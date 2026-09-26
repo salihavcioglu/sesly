@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🗣️ GitHub Discussions
+    url: https://github.com/salihavcioglu/sesly/discussions
+    about: Ideas, show-and-tell, and open-ended Q&A that isn't a bug or a specific feature ask.
+  - name: 🔒 Security vulnerability
+    url: https://github.com/salihavcioglu/sesly/security/policy
+    about: Please report security issues privately — do NOT open a public issue.

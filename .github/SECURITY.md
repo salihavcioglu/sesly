@@ -1,0 +1,75 @@
+# Security Policy
+
+## Supported Versions
+
+| Version | Supported |
+|---------|-----------|
+| 0.5.x (latest release + `main` previews) | ✅ Current — all fixes land here |
+| 0.2.7 | ⚠️ Legacy stable — security fixes only, upgrade recommended |
+| < 0.2.7 | ❌ No longer supported |
+
+## Model supply chain
+
+Sesly supports models from **public, verifiable sources only** (Hugging
+Face repos, official project releases). Privately sold or gated model files
+are not supported: an archive from a private source can carry anything
+(bundled executables, modified configs), and nobody else can verify or
+reproduce it. Treat any privately distributed model file as an untrusted
+download, and never run executables bundled with model archives.
+
+## Reporting a Vulnerability
+
+**Please do not open a public issue for security vulnerabilities.**
+
+Instead, report them privately via one of these channels:
+
+1. **GitHub Security Advisories** (preferred) — [Report a vulnerability](https://github.com/salihavcioglu/sesly/security/advisories/new)
+2. **Email** — Send details to **s.avcioglu23@gmail.com**
+
+### What to include
+
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if you have one)
+
+### Response timeline
+
+| Step | Timeline |
+|------|----------|
+| Acknowledgment | Within **48 hours** |
+| Initial assessment | Within **5 business days** |
+| Fix or mitigation | Within **30 days** (critical), **90 days** (non-critical) |
+| Public disclosure | After fix is released, coordinated with reporter |
+
+### Scope
+
+Sesly runs **100% locally** by default. The primary attack surface is:
+
+- **Network exposure** — if the user binds to `0.0.0.0` without a reverse proxy
+- **Model downloads** — fetched from Hugging Face Hub over HTTPS
+- **Dependency supply chain** — Python/npm packages
+- **File handling** — audio/video uploads processed by FFmpeg, torchaudio, etc.
+
+### Out of scope
+
+- Vulnerabilities in upstream dependencies (PyTorch, FFmpeg, etc.) — report those upstream
+- Issues requiring physical access to the machine
+- Social engineering attacks
+
+## Automated scanning
+
+Every pull request and push to `main` runs [`.github/workflows/security.yml`](.github/workflows/security.yml):
+
+- **gitleaks** — secret scanning (blocks merge on a leaked credential)
+- **CodeQL** — Python + JavaScript/TypeScript static analysis → Security tab
+- **bandit** — Python static analysis → Security tab
+- **pip-audit** / **bun audit** — dependency advisory checks (reporting)
+
+Pull requests are additionally reviewed by code review before merge.
+
+## Security Best Practices for Users
+
+- **Do not expose Sesly to the internet without authentication.** The API has no built-in auth. Use a reverse proxy (Caddy, nginx, Tailscale) if you need remote access.
+- **Keep your installation updated.** The desktop app auto-checks for updates via the built-in updater.
+- **Review model sources.** Only download models from trusted Hugging Face repositories.

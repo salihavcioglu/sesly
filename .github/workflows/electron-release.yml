@@ -1,0 +1,260 @@
+name: Electron desktop release
+
+# Builds are safe by default. Only an explicit publish dispatch exposes a release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing version tag to package using this workflow from main (optional)"
+        type: string
+        default: ''
+      publish:
+        description: "Publish the tagged Electron release after all platforms pass"
+        type: boolean
+        default: false
+      allow_unsigned:
+        description: "Explicitly accept unsigned/unnotarized Electron installers and documented updater limitations"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: electron-release-${{ inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_REF: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
+
+jobs:
+  validate:
+    # The archived sunset tag was assembled separately; future tags are Electron-only.
+    if: github.event_name == 'workflow_dispatch' || github.ref_name != vars.TAURI_SUNSET_TAG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+      - name: Require an exact version tag
+        env:
+          REF: ${{ env.RELEASE_REF }}
+          WORKFLOW_REF: ${{ github.ref }}
+          RELEASE_TAG_OVERRIDE: ${{ inputs.release_tag }}
+          ALLOW_UNSIGNED: ${{ inputs.allow_unsigned }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          RERUN_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$ALLOW_UNSIGNED" = true ]; then
+            test "$DISPATCH_ACTOR" = "$OWNER" && test "$RERUN_ACTOR" = "$OWNER" || {
+              echo "Only the repository owner may accept unsigned installers"; exit 1;
+            }
+          fi
+          if [ -n "$RELEASE_TAG_OVERRIDE" ]; then
+            test "$WORKFLOW_REF" = refs/heads/main || { echo "Tag overrides require the workflow from main"; exit 1; }
+          fi
+          VERSION=$(node -p "require('./frontend/package.json').version")
+          test "$REF" = "refs/tags/v$VERSION" || { echo "Select the exact version tag"; exit 1; }
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "$REF^{commit}")" || { echo "Checkout does not match the release tag"; exit 1; }
+  package:
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+            flags: --linux --x64
+          - runner: windows-2022
+            platform: win32
+            arch: x64
+            target: x86_64-pc-windows-msvc
+            flags: --win --x64
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+            target: aarch64-apple-darwin
+            flags: --mac --arm64
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            target: x86_64-apple-darwin
+            flags: --mac --x64
+    defaults:
+      run:
+        shell: bash
+    env:
+      SESLY_RUST_TARGET: ${{ matrix.target }}
+      SESLY_UPDATE_CHANNEL: electron-stable-${{ matrix.platform }}-${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      VITE_POSTHOG_KEY: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+      VITE_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/desktop-bridge -> target
+          key: electron-${{ matrix.target }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.13'
+          enable-cache: false
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxdo-dev libxtst-dev libx11-dev libxkbcommon-dev libwayland-dev libssl-dev pkg-config xvfb zsync
+      - name: Bundle pinned uv for the host architecture
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { mkdirSync, copyFileSync, chmodSync } from 'node:fs';
+          import { join } from 'node:path';
+          const expected = process.env.SESLY_RUST_TARGET;
+          const targets = { 'linux-x64': 'x86_64-unknown-linux-gnu', 'win32-x64': 'x86_64-pc-windows-msvc', 'darwin-arm64': 'aarch64-apple-darwin', 'darwin-x64': 'x86_64-apple-darwin' };
+          if (targets[`${process.platform}-${process.arch}`] !== expected) throw new Error('Runner architecture does not match package target');
+          const source = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', ['uv'], { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
+          const dir = 'electron/build/uv';
+          mkdirSync(dir, { recursive: true });
+          const destination = join(dir, `uv-${expected}${process.platform === 'win32' ? '.exe' : ''}`);
+          copyFileSync(source, destination);
+          if (process.platform !== 'win32') chmodSync(destination, 0o755);
+          NODE
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate and build Electron
+        run: bun run check:electron
+      - name: Package without publishing
+        env:
+          CSC_LINK: ${{ matrix.platform == 'darwin' && secrets.ELECTRON_MACOS_CSC_LINK || matrix.platform == 'win32' && secrets.ELECTRON_WINDOWS_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.ELECTRON_MACOS_CSC_KEY_PASSWORD || matrix.platform == 'win32' && secrets.ELECTRON_WINDOWS_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ matrix.platform == 'darwin' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'darwin' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.platform == 'darwin' && secrets.APPLE_TEAM_ID || '' }}
+          PUBLISH: ${{ inputs.publish }}
+          ALLOW_UNSIGNED: ${{ inputs.allow_unsigned }}
+        working-directory: electron
+        run: |
+          if [ "${{ matrix.platform }}" = darwin ] && [ "$PUBLISH" = true ] && [ "$ALLOW_UNSIGNED" != true ]; then
+            if [ -z "${CSC_LINK:-}" ] || [ -z "${CSC_KEY_PASSWORD:-}" ] || [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+              echo "Signed macOS publication requires Developer ID and Apple notarization credentials"; exit 1
+            fi
+          fi
+          # An empty CSC_LINK is interpreted as the working directory by the
+          # signer. Omit absent credentials rather than passing empty strings.
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+          fi
+          bun x electron-builder --config electron-builder.config.mjs ${{ matrix.flags }} --publish never
+          if [ "$RUNNER_OS" = Linux ]; then
+            node scripts/embed-appimage-update.mjs
+          fi
+          node tests/packaging-contract.mjs --artifact
+          node tests/update-package-contract.mjs --platform ${{ matrix.platform }} --arch ${{ matrix.arch }}
+      - name: Verify macOS signing and notarization before publication
+        if: inputs.publish == true && inputs.allow_unsigned != true && matrix.platform == 'darwin'
+        run: |
+          APP=$(find electron/release -maxdepth 2 -name Sesly.app -type d -print -quit)
+          test -n "$APP"
+          codesign --verify --deep --strict "$APP"
+          spctl --assess --type execute --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+      - name: Verify Windows installer signature before publication
+        if: inputs.publish == true && inputs.allow_unsigned != true && matrix.platform == 'win32'
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem electron/release/Sesly-Electron-*.exe)
+          if ($installers.Count -eq 0) { throw "No installer to verify" }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid') { throw "Installer signature is not trusted: $($installer.Name)" }
+          }
+      - name: Packaged startup smoke test
+        working-directory: electron
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            for image in release/Sesly-Electron-*-linux-x64.AppImage; do
+              SESLY_PACKAGED_EXE="electron/$image" xvfb-run -a node tests/packaged-smoke.mjs --setup
+            done
+          else
+            node tests/packaged-smoke.mjs --setup
+          fi
+      - name: Save installers and updater metadata for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-release-${{ matrix.platform }}-${{ matrix.arch }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            electron/release/Sesly-Electron-*
+            electron/release/electron-*.yml
+
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ inputs.release_tag || github.ref_name }}
+      SUNSET_TAG: ${{ vars.TAURI_SUNSET_TAG }}
+      PUBLISH: ${{ inputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: electron-release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Validate all platforms before creating a release
+        run: |
+          python3 scripts/prepare_electron_release.py --assets release-assets --tag "$TAG"
+      - name: Preserve the final Tauri updater feeds
+        run: |
+          test "$SUNSET_TAG" = "v0.5.3" || { echo "TAURI_SUNSET_TAG must be v0.5.3 before releasing"; exit 1; }
+          # Every release carries copies pointing to immutable v0.5.3 payloads
+          # so archived Tauri clients never receive Electron installers.
+          gh release download "$SUNSET_TAG" --pattern latest.json --dir release-assets
+          gh release download "$SUNSET_TAG" --pattern latest-user.json --dir release-assets
+          python3 scripts/prepare_electron_release.py --assets release-assets --tag "$TAG" --sunset-tag "$SUNSET_TAG"
+      - name: Disclose explicitly accepted unsigned artifacts
+        if: inputs.allow_unsigned == true
+        run: |
+          cat >> release-assets/RELEASE_NOTES.md <<'EOF'
+
+          ### Electron installer trust
+          These Electron installers are unsigned or ad-hoc signed and are not Apple-notarized.
+          Windows/macOS may show trust warnings. macOS automatic updates are unverified;
+          use manual installer updates. Tauri updater signatures remain independently verified.
+          EOF
+      - name: Create or update draft
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --draft --title "$TAG — Sesly" --notes-file release-assets/RELEASE_NOTES.md
+          fi
+          test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true || { echo "Refusing to replace a published release"; exit 1; }
+          gh release edit "$TAG" --notes-file release-assets/RELEASE_NOTES.md
+          find release-assets -maxdepth 1 -type f ! -name RELEASE_NOTES.md -print0 | xargs -0 gh release upload "$TAG" --clobber
+      - name: Publish only when explicitly requested
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+        run: gh release edit "$TAG" --draft=false --latest

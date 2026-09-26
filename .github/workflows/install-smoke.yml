@@ -1,0 +1,98 @@
+# Exercise the maintained Electron installers, never the archived Tauri build.
+name: Install smoke
+on:
+  pull_request:
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'electron/tests/*installer*', '.github/workflows/install-smoke.yml']
+  push:
+    branches: [main]
+    paths: ['scripts/install.sh', 'scripts/install.ps1', 'electron/tests/*installer*', '.github/workflows/install-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+jobs:
+  install:
+    name: Install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential pkg-config libasound2-dev libxdo-dev libxtst-dev libx11-dev libxkbcommon-dev libwayland-dev libssl-dev binutils zsync
+      - name: Native PowerShell safety cases
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./electron/tests/powershell-installer.ps1
+      - name: Shell safety cases
+        if: runner.os != 'Windows'
+        working-directory: electron
+        run: node --test tests/shell-installer.test.mjs
+      - name: Install latest release (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: sh scripts/install.sh
+      - name: Build and install main (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = Linux ] && [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            # Exercise the PR source as main before its installer changes are merged.
+            git init --bare -q --initial-branch=main "$RUNNER_TEMP/sesly-main.git"
+            git --git-dir "$RUNNER_TEMP/sesly-main.git" config receive.shallowUpdate true
+            git push "$RUNNER_TEMP/sesly-main.git" HEAD:refs/heads/main
+            export GIT_CONFIG_COUNT=1
+            export GIT_CONFIG_KEY_0="url.file://$RUNNER_TEMP/sesly-main.git.insteadOf"
+            export GIT_CONFIG_VALUE_0=https://github.com/salihavcioglu/sesly.git
+          fi
+          sh scripts/install.sh --main
+      - name: Verify and uninstall Electron (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$(uname)" = Darwin ]; then
+            test -f /Applications/Sesly.app/Contents/Resources/app.asar
+          else
+            test -x "$HOME/.local/bin/Sesly"
+          fi
+          sh scripts/install.sh --uninstall
+          if [ "$(uname)" = Darwin ]; then
+            test ! -e /Applications/Sesly.app
+          else
+            test ! -e "$HOME/.local/bin/Sesly"
+          fi
+      - name: Install latest release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/install.ps1 -Silent
+      - name: Verify and uninstall release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $keys = @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*')
+          $entry = Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '^Sesly(?: \d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)?$' -and $_.UninstallString -match 'Uninstall Sesly.exe' } | Select-Object -First 1
+          if (-not $entry) { throw 'Electron NSIS product not registered' }
+          & ./scripts/install.ps1 -Uninstall -Silent
+          if (Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '^Sesly(?: \d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)?$' -and $_.UninstallString -match 'Uninstall Sesly.exe' }) { throw 'Electron remains registered after uninstall' }
+      - name: Build and install main (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/install.ps1 -Main -Silent
+      - name: Verify and uninstall Electron (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $keys = @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*')
+          $entry = Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '^Sesly(?: \d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)?$' -and $_.UninstallString -match 'Uninstall Sesly.exe' } | Select-Object -First 1
+          if (-not $entry) { throw 'Electron NSIS product not registered' }
+          & ./scripts/install.ps1 -Uninstall -Silent
+          if (Get-ItemProperty $keys -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -match '^Sesly(?: \d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)?$' -and $_.UninstallString -match 'Uninstall Sesly.exe' }) { throw 'Electron remains registered after uninstall' }
