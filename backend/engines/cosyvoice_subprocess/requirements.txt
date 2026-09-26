@@ -1,0 +1,56 @@
+# CosyVoice 3 inference requirements for Sesly's one-click install.
+#
+# Derived from upstream's requirements.txt at FunAudioLLM/CosyVoice@074ca6dc
+# (2026-05-25) and trimmed to what synthesis needs. What differs, and why:
+#
+# - No --extra-index-url lines. Upstream adds PyTorch's cu121 index and a
+#   third-party Azure DevOps feed for onnxruntime-gpu. The installer chooses
+#   the PyTorch build itself and uses no third-party index.
+# - torch and torchaudio are not listed here. The installer pins the 2.7.0
+#   pair per host: +cu128 on NVIDIA GPUs, +cpu on other Windows and Linux
+#   machines, the regular build on macOS. Upstream's 2.3.1 exists only for
+#   CUDA 12.1 and cannot run on RTX 50-series GPUs.
+# - Raised past published security advisories, where upstream pins an
+#   affected release: diffusers, hydra-core, lightning, modelscope, onnx,
+#   protobuf and transformers. This exact set was installed on Windows and
+#   passes the installer's import probe (tests pin the advisory floors).
+#   transformers 5 was also checked against CosyVoice's own tokenizer (token
+#   ids identical to 4.57.6). The sidecar repairs cached attention masks and
+#   checkpoint loading precision; real CPU synthesis is also validated.
+# - Dropped: deepspeed and tensorrt-cu12* (Linux-only acceleration),
+#   onnxruntime-gpu, wetext (remote normalizer data), and unused web/training
+#   services. Keep gdown, wget and pyarrow: upstream imports them at runtime.
+# - PyWORLD is built separately from a pinned upstream source with its WORLD
+#   submodule. That revision uses importlib.metadata, so pkg_resources and
+#   an obsolete setuptools runtime are not required. A C++ compiler is needed.
+# - openai-whisper 20231117 -> 20250625: the older release needs
+#   pkg_resources at build time and fails to build. CosyVoice only uses its
+#   mel-spectrogram frontend.
+#
+# Everything else keeps upstream's exact pin. tests/test_cosyvoice_subprocess.py
+# checks this file.
+conformer==0.3.2
+diffusers==0.39.0
+hydra-core==1.3.6
+HyperPyYAML==1.2.3
+inflect==7.3.1
+librosa==0.10.2
+lightning==2.6.6
+matplotlib==3.7.5
+modelscope==1.40.0
+networkx==3.1
+numpy==1.26.4
+omegaconf==2.3.0
+onnx==1.22.0
+onnxruntime==1.18.0
+openai-whisper==20250625
+protobuf==5.29.6
+pydantic==2.7.0
+rich==13.7.1
+soundfile==0.12.1
+transformers==5.10.1
+x-transformers==2.11.24
+
+gdown==6.4.0
+wget==3.2
+pyarrow==25.0.1
