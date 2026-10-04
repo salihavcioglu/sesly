@@ -69,6 +69,15 @@ _CHANGE_CASES = [
     ("French", "il a 42 chats", "il a quarante-deux chats"),
     ("French", "Mme Dupont arrive", "Madame Dupont arrive"),
     ("Russian", "у меня 42 кота", "у меня сорок два кота"),
+    ("Turkish", "GPT'yi kullandık", "ci pi ti'yi kullandık"),
+    ("Turkish", "ChatGPT ve AI araçları", "çet ci pi ti ve ey ay araçları"),
+    ("Turkish", "TBMM ve ABD", "te be me me ve a be de"),
+    ("Turkish", "elma, armut vb. meyveler", "elma, armut ve benzeri meyveler"),
+    ("Turkish", "Örn. bu cümle", "Örneğin bu cümle"),
+    ("Turkish", "Prof. Dr. İlber Ortaylı", "Profesör Doktor İlber Ortaylı"),
+    ("Turkish", "PDF dosyasını aç", "pe de fe dosyasını aç"),
+    # Acronym keys never touch longer words ("ABDULLAH", "TVsi").
+    ("Turkish", "ABDULLAH geldi", "ABDULLAH geldi"),
     # Malayalam goes through the native verbalizer (num2words has no ml
     # locale): cardinals with sandhi, years as plain cardinals, Indian
     # lakh grouping, percent and decimal. Display name and ISO code agree.
